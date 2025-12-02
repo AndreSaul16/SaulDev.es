@@ -1,0 +1,15 @@
+{
+  "users": [
+    {
+      "email": "andresaul16s@gmail.com",
+      "credentials": [
+        {
+          "credentialID": "a21rQTNORkRjS19RbC1NYXZrZTlMSjQ3cDQ2WmFCZDBRQUU1ZmJ1V25zVQ==",
+          "credentialPublicKey": "pQECAyYgASFYIFbhIZ43S+BcT5/T3Fc2Zapk2gOaRafWE7JTykfK5qiPIlggbqAAMWer6DEfX+V7m3V+lABXWiPOANgqcxYV4V/Jq+U=",
+          "counter": 0
+        }
+      ],
+      "registeredAt": "2025-12-01T18:59:22.650Z"
+    }
+  ]
+}
