@@ -1,8 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { startRegistration, startAuthentication } from '@simplewebauthn/browser';
 import { initializeApp } from 'firebase/app';
-import { getAuth, signInWithCustomToken, signOut, onAuthStateChanged } from 'firebase/auth';
-
+import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from 'firebase/auth';
 
 // Firebase Configuration (Client)
 const firebaseConfig = {
@@ -18,6 +16,7 @@ const firebaseConfig = {
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
+const googleProvider = new GoogleAuthProvider();
 
 const AuthContext = createContext();
 
@@ -32,13 +31,18 @@ export const useAuth = () => {
 export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
     const [isAuthenticated, setIsAuthenticated] = useState(false);
-    const [isLoading, setIsLoading] = useState(true); // Start loading to check auth state
+    const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
         // Listen for Firebase Auth state changes
         const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
             if (firebaseUser) {
-                setUser({ email: firebaseUser.email, uid: firebaseUser.uid });
+                setUser({
+                    email: firebaseUser.email,
+                    uid: firebaseUser.uid,
+                    displayName: firebaseUser.displayName,
+                    photoURL: firebaseUser.photoURL
+                });
                 setIsAuthenticated(true);
             } else {
                 setUser(null);
@@ -50,112 +54,21 @@ export const AuthProvider = ({ children }) => {
         return () => unsubscribe();
     }, []);
 
-    const register = async (email) => {
+    const loginWithGoogle = async () => {
         setIsLoading(true);
         try {
-            // Step 1: Get registration options from server
-            const optionsRes = await fetch('/.netlify/functions/webauthn-register', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ step: 'generate-options', email, rpID: RP_ID }),
-            });
-
-            if (!optionsRes.ok) {
-                const error = await optionsRes.json();
-                throw new Error(error.error || 'Failed to get registration options');
-            }
-
-            const options = await optionsRes.json();
-
-            // Step 2: Start registration with WebAuthn
-            const attResp = await startRegistration(options);
-
-            // Step 3: Verify registration on server
-            const verifyRes = await fetch('/.netlify/functions/webauthn-register', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    step: 'verify-registration',
-                    email,
-                    response: attResp,
-                }),
-            });
-
-            if (!verifyRes.ok) {
-                const error = await verifyRes.json();
-                throw new Error(error.error || 'Failed to verify registration');
-            }
-
-            const { verified, token } = await verifyRes.json();
-
-            if (verified && token) {
-                console.log('Registration successful. Auto-logging in with Firebase...');
-                // Auto-login with Firebase Custom Token
-                await signInWithCustomToken(auth, token);
-                console.log('Firebase Auto-login successful');
-                return { success: true };
-            } else if (verified) {
-                return { success: true };
-            }
-
-            throw new Error('Registration verification failed');
+            const result = await signInWithPopup(auth, googleProvider);
+            console.log('Google Sign-In successful:', result.user.email);
+            return { success: true };
         } catch (error) {
-            console.error('Registration error:', error);
-            return { success: false, error: error.message };
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
-
-
-    const login = async (email) => {
-        setIsLoading(true);
-        try {
-            // Step 1: Get registration options from server
-            const optionsRes = await fetch('/.netlify/functions/webauthn-register', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ step: 'generate-options', email, rpID: RP_ID }),
-            });
-
-            if (!optionsRes.ok) {
-                const error = await optionsRes.json();
-                throw new Error(error.error || 'Failed to get authentication options');
+            console.error('Google Sign-In error:', error);
+            // Handle specific errors
+            if (error.code === 'auth/popup-closed-by-user') {
+                return { success: false, error: 'Popup cerrado por el usuario' };
             }
-
-            const options = await optionsRes.json();
-
-            // Step 2: Start authentication with WebAuthn
-            const authResp = await startAuthentication(options);
-
-            // Step 3: Verify authentication on server
-            const verifyRes = await fetch('/.netlify/functions/webauthn-login', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    step: 'verify-authentication',
-                    email,
-                    response: authResp,
-                }),
-            });
-
-            if (!verifyRes.ok) {
-                const error = await verifyRes.json();
-                throw new Error(error.error || 'Failed to verify authentication');
+            if (error.code === 'auth/popup-blocked') {
+                return { success: false, error: 'Popup bloqueado. Permite popups para este sitio.' };
             }
-
-            const { verified, token } = await verifyRes.json();
-
-            if (verified && token) {
-                // Sign in with Firebase Custom Token
-                await signInWithCustomToken(auth, token);
-                return { success: true };
-            }
-
-            throw new Error('Authentication verification failed');
-        } catch (error) {
-            console.error('Login error:', error);
             return { success: false, error: error.message };
         } finally {
             setIsLoading(false);
@@ -174,8 +87,7 @@ export const AuthProvider = ({ children }) => {
         user,
         isAuthenticated,
         isLoading,
-        register,
-        login,
+        loginWithGoogle,
         logout,
     };
 
