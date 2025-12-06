@@ -17,10 +17,19 @@ export function getDb() {
             let privateKey = process.env.FIREBASE_PRIVATE_KEY;
 
             if (privateKey) {
+                // Remover comillas externas si existen
                 if (privateKey.startsWith('"') && privateKey.endsWith('"')) {
                     privateKey = privateKey.slice(1, -1);
                 }
+                if (privateKey.startsWith("'") && privateKey.endsWith("'")) {
+                    privateKey = privateKey.slice(1, -1);
+                }
+                // Reemplazar todos los formatos posibles de newlines
                 privateKey = privateKey.replace(/\\n/g, '\n');
+                privateKey = privateKey.replace(/\\\\n/g, '\n');
+
+                // Log para debug (solo primeros caracteres)
+                console.log('Private key starts with:', privateKey.substring(0, 30));
             }
 
             // Usar VITE_FIREBASE_PROJECT_ID como fallback (es la que existe en Netlify)
