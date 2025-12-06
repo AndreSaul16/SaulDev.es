@@ -15,7 +15,7 @@ function BlogEditor() {
     const [uploadSuccess, setUploadSuccess] = useState(false);
     const [showPreview, setShowPreview] = useState(false);
     const [error, setError] = useState(null);
-    const { user } = useAuth();
+    const { user, getIdToken } = useAuth();
 
     const handleDrop = (e) => {
         e.preventDefault();
@@ -75,12 +75,18 @@ function BlogEditor() {
         setError(null);
 
         try {
-            // Enviar con header de autenticación
+            // Obtener el ID Token de Firebase para autorización
+            const idToken = await getIdToken();
+            if (!idToken) {
+                throw new Error('No se pudo obtener el token de autenticación');
+            }
+
+            // Enviar con header de autenticación Bearer
             const response = await fetch('/.netlify/functions/blog-upload', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': JSON.stringify(user),
+                    'Authorization': `Bearer ${idToken}`,
                 },
                 body: JSON.stringify({
                     filename: file.name,
@@ -165,8 +171,8 @@ function BlogEditor() {
                     onDragEnter={() => setIsDragging(true)}
                     onDragLeave={() => setIsDragging(false)}
                     className={`bg-deep-space/50 backdrop-blur-lg rounded-2xl border-2 border-dashed p-12 text-center transition-all ${isDragging
-                            ? 'border-neon-cyan bg-neon-cyan/10'
-                            : 'border-white/20 hover:border-white/40'
+                        ? 'border-neon-cyan bg-neon-cyan/10'
+                        : 'border-white/20 hover:border-white/40'
                         }`}
                 >
                     {uploadSuccess ? (

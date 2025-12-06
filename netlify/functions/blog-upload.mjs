@@ -1,4 +1,4 @@
-import { getDb, COLLECTIONS } from './utils/firebase-admin.mjs';
+import { getDb, admin, COLLECTIONS } from './utils/firebase-admin.mjs';
 
 const headers = {
     'Access-Control-Allow-Origin': '*',
@@ -8,21 +8,30 @@ const headers = {
 };
 
 /**
- * Verify user authentication
+ * Verify user authentication using Firebase ID Token
  */
 async function verifyAuth(authHeader) {
     try {
-        if (!authHeader) return null;
+        if (!authHeader || !authHeader.startsWith('Bearer ')) {
+            console.log('No Bearer token provided');
+            return null;
+        }
 
-        const userData = JSON.parse(authHeader);
+        const idToken = authHeader.replace('Bearer ', '');
 
-        // Verificar que el usuario existe en Firestore
-        const db = getDb();
-        const userDoc = await db.collection(COLLECTIONS.USERS).doc(userData.email).get();
+        // Asegurarse de que Firebase Admin está inicializado
+        getDb();
 
-        return userDoc.exists ? userData : null;
+        // Verificar el ID Token con Firebase Admin
+        const decodedToken = await admin.auth().verifyIdToken(idToken);
+
+        return {
+            email: decodedToken.email,
+            uid: decodedToken.uid,
+            name: decodedToken.name || decodedToken.email
+        };
     } catch (error) {
-        console.error('Auth verification error:', error);
+        console.error('Auth verification error:', error.message);
         return null;
     }
 }

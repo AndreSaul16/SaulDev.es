@@ -83,12 +83,21 @@ export const AuthProvider = ({ children }) => {
         }
     };
 
+    // Obtener el ID Token de Firebase para autorización en APIs
+    const getIdToken = async () => {
+        if (auth.currentUser) {
+            return await auth.currentUser.getIdToken();
+        }
+        return null;
+    };
+
     const value = {
         user,
         isAuthenticated,
         isLoading,
         loginWithGoogle,
         logout,
+        getIdToken,
     };
 
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
