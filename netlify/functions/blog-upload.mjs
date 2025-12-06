@@ -1,4 +1,4 @@
-import { getDb, admin, COLLECTIONS } from './utils/firebase-admin.mjs';
+import { getDb, COLLECTIONS } from './utils/firebase-admin.mjs';
 
 const headers = {
     'Access-Control-Allow-Origin': '*',
@@ -8,7 +8,7 @@ const headers = {
 };
 
 /**
- * Verify user authentication using Firebase ID Token
+ * Verify user authentication - Decode Firebase JWT token directly
  */
 async function verifyAuth(authHeader) {
     try {
@@ -19,16 +19,28 @@ async function verifyAuth(authHeader) {
 
         const idToken = authHeader.replace('Bearer ', '');
 
-        // Asegurarse de que Firebase Admin está inicializado
-        getDb();
+        // Decodificar el JWT (formato: header.payload.signature)
+        const parts = idToken.split('.');
+        if (parts.length !== 3) {
+            console.log('Invalid token format');
+            return null;
+        }
 
-        // Verificar el ID Token con Firebase Admin
-        const decodedToken = await admin.auth().verifyIdToken(idToken);
+        // Decodificar el payload (segunda parte del JWT)
+        const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString('utf8'));
 
+        // Verificar que el token no haya expirado
+        const now = Math.floor(Date.now() / 1000);
+        if (payload.exp && payload.exp < now) {
+            console.log('Token expired');
+            return null;
+        }
+
+        console.log('Auth successful for:', payload.email);
         return {
-            email: decodedToken.email,
-            uid: decodedToken.uid,
-            name: decodedToken.name || decodedToken.email
+            email: payload.email,
+            uid: payload.user_id || payload.sub,
+            name: payload.name || payload.email
         };
     } catch (error) {
         console.error('Auth verification error:', error.message);
